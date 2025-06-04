@@ -7,6 +7,8 @@ import geometry.Shape;
 import geometry.Vector3D;
 import math.Transform;
 import projection.ParallelProjection;
+import projection.PerspectiveProjection;
+import projection.Projection;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
@@ -20,6 +22,8 @@ public class Janim3D {
     private BufferedImage buffer;
     private Vector3D camDirection;
     private Point3D camPosition;
+    private Projection projection;
+    private double distance;
 
     private static final int INSIDE = 0; // 0000
     private static final int LEFT   = 1; // 0001
@@ -31,12 +35,14 @@ public class Janim3D {
         this.width = width;
         this.height = height;
         this.scale = 10; // Default scale
+        this.distance = -50;
 
         buffer = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         clear();
 
         camPosition = new Point3D(20,20,20);
         camDirection = new Vector3D(camPosition, new Point3D(0, 0, 0)); // look at origin
+        projection = Projection.PARALLEL; // Default projection
     }
 
     public int getWidth() { return width; }
@@ -46,6 +52,8 @@ public class Janim3D {
     public BufferedImage getBuffer() { return buffer; }
     public Vector3D getCamDirection() { return camDirection; }
     public Point3D getCamPosition() { return camPosition; }
+    public Projection getProjection() { return projection; }
+    public double getDistance() { return distance; }
 
     public void setWidth(int width) { this.width = width; }
     public void setHeight(int height) { this.height = height; }
@@ -54,6 +62,8 @@ public class Janim3D {
     public void setBuffer(BufferedImage buffer) { this.buffer = buffer; }
     public void setCamDirection(Vector3D direction) { camDirection = direction; }
     public void setCamPosition(Point3D position) { camPosition = position; }
+    public void setProjection(Projection projection) { this.projection = projection; }
+    public void setDistance(double distance) { this.distance = distance; }
 
     private void drawPixel(int xScreen, int yScreen) {
         if (xScreen >= 0 && xScreen < width && yScreen >= 0 && yScreen < height) {
@@ -99,8 +109,16 @@ public class Janim3D {
             return; // Both behind camera
         }*/
 
-        Point2D p0Proj = ParallelProjection.project(p0, camDirection.opp(), camPosition);
-        Point2D p1Proj = ParallelProjection.project(p1, camDirection.opp(), camPosition);
+        Point2D p0Proj, p1Proj;
+        if (projection == Projection.PARALLEL) {
+            p0Proj = ParallelProjection.project(p0, camDirection.opp(), camPosition);
+            p1Proj = ParallelProjection.project(p1, camDirection.opp(), camPosition);
+        } else if (projection == Projection.PERSPECTIVE) {
+            p0Proj = PerspectiveProjection.project(p0, camDirection.opp(), camPosition, distance);
+            p1Proj = PerspectiveProjection.project(p1, camDirection.opp(), camPosition, distance);
+        } else {
+            return;
+        }
 
         // Transform universal Point2D to real Point2D
         Transform.toRealPoint2D(p0Proj, scale, width/2, height/2);

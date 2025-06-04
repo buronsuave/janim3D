@@ -1,8 +1,14 @@
 import geometry.Cube;
+import geometry.Curve3D;
+import geometry.GaussSurface3D;
 import geometry.Point3D;
+import geometry.Shape;
+import geometry.SqueezedCylinder;
+import geometry.Surface3D;
 import geometry.Vector3D;
 import graphics.Janim3D;
 import math.Transform;
+import projection.Projection;
 
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
@@ -28,6 +34,7 @@ public class App extends JFrame {
             INITIAL_CAM_POSITION_X,
             INITIAL_CAM_POSITION_Y,
             INITIAL_CAM_POSITION_Z);
+    private static final double DEFAULT_OBS_DISTANCE = -50;
     private double angleX;
     private double angleY;
     private double angleZ;
@@ -37,14 +44,19 @@ public class App extends JFrame {
     // Movement parameters
     private final double delta = Math.PI / 90; // 2 degrees per key-press
     private Timer autoRotateTimer;
-    private Timer autoRotateCubeTimer;
+    private Timer autoRotateShapeTimer;
     private boolean autoRotate = false;
-    private boolean autoRotateCube = false;
+    private boolean autoRotateShape = false;
 
     // Animation objects
     private final Janim3D janim;
     private final Cube cube;
     private static final int CUBE_SIZE = 10;
+    private final Curve3D curve;
+    private final Surface3D surface;
+    private final SqueezedCylinder cylinder;
+    private final GaussSurface3D gauss;
+    private Shape currentShape;
 
     // Frame parameters
     private static final int WIDTH = 1000;
@@ -62,14 +74,21 @@ public class App extends JFrame {
         janim = new Janim3D(WIDTH, HEIGHT);
         janim.setCamPosition(initialCamPosition);
         janim.setCamDirection(new Vector3D(initialCamPosition, ORIGIN));
+        janim.setDistance(DEFAULT_OBS_DISTANCE);
         initializeCameraAngles();
 
         drawAxes();
 
         // Draw cube
         cube = new Cube(CUBE_SIZE);
+        curve = new Curve3D();
+        surface = new Surface3D();
+        cylinder = new SqueezedCylinder();
+        gauss = new GaussSurface3D();
+        currentShape = cube;
+
         janim.setColor(Color.WHITE);
-        janim.drawShape(cube);
+        janim.drawShape(currentShape);
 
         // Panel for drawing
         JPanel panel = new JPanel() {
@@ -95,15 +114,22 @@ public class App extends JFrame {
                 {"E/D", "Rotate Cam Z"},
                 {"R",   "Reset Cam"},
                 {"P",   "Toggle Cam Auto-rotate"},
-                {"T/G", "Rotate Cube X"},
-                {"Y/H", "Rotate Cube Y"},
-                {"U/J", "Rotate Cube Z"},
-                {"Arrows", "Translate XY"},
-                {"Z/X", "Translate Z"},
-                {"C",   "Reset Cube"},
-                {"F",   "Toggle Cube Auto-rotate"},
-                {"N/M", "Scale Cube"},
-                {"L",   "Print Cube on Serial"}
+                {"T/G", "Rotate Shape X"},
+                {"Y/H", "Rotate Shape Y"},
+                {"U/J", "Rotate Shape Z"},
+                {"Arrows", "Translate Shape XY"},
+                {"Z/X", "Translate Shape Z"},
+                {"C",   "Reset Shape"},
+                {"F",   "Toggle Shape Auto-rotate"},
+                {"N/M", "Scale Shape"},
+                {"L",   "Print Shape on Serial"},
+                {"V",   "Toggle Projection"},
+                {"1/2", "Move observer's distance"},
+                {"3", "Select cube"},
+                {"4", "Select curve"},
+                {"5", "Select surface"},
+                {"6", "Select squeezed cylinder"},
+                {"7", "Select Gaussian surface"}
         };
 
         for (String[] pair : actions) {
@@ -129,6 +155,7 @@ public class App extends JFrame {
             janim.setCamPosition(initialCamPosition);
             janim.setCamDirection(new Vector3D(initialCamPosition, ORIGIN));
             radius = janim.getCamDirection().length();
+            janim.setDistance(DEFAULT_OBS_DISTANCE);
             initializeCameraAngles();  // recalculate angles from original
             updateCameraPosition();
             repaintScene(panel);
@@ -138,7 +165,6 @@ public class App extends JFrame {
             if (autoRotate) {
                 autoRotateTimer.stop();
             } else {
-                radius = janim.getCamDirection().length(); // ensure same radius
                 autoRotateTimer = new Timer(30, e -> {
                     angleY += delta / 5; // smooth slow orbit
                     updateCameraPosition();
@@ -151,54 +177,110 @@ public class App extends JFrame {
         });
 
         // Cube control
-        bindKey(panel, "T", () -> { cube.rotate(delta, 'x');  repaintScene(panel); });
-        bindKey(panel, "G", () -> { cube.rotate(-delta, 'x'); repaintScene(panel); });
-        bindKey(panel, "Y", () -> { cube.rotate(delta, 'y');  repaintScene(panel); });
-        bindKey(panel, "H", () -> { cube.rotate(-delta, 'y'); repaintScene(panel); });
-        bindKey(panel, "U", () -> { cube.rotate(delta, 'z');  repaintScene(panel); });
-        bindKey(panel, "J", () -> { cube.rotate(-delta, 'z'); repaintScene(panel); });
-        bindKey(panel, "UP", () -> { cube.translate(0,0.5,0);  repaintScene(panel); });
-        bindKey(panel, "DOWN", () -> { cube.translate(0,-0.5,0); repaintScene(panel); });
-        bindKey(panel, "LEFT", () -> { cube.translate(-0.5,0,0);  repaintScene(panel); });
-        bindKey(panel, "RIGHT", () -> { cube.translate(0.5,0,0); repaintScene(panel); });
-        bindKey(panel, "Z", () -> { cube.translate(0,0,0.5);  repaintScene(panel); });
-        bindKey(panel, "X", () -> { cube.translate(0,0,-0.5); repaintScene(panel); });
-        bindKey(panel, "C", () -> { cube.resetTransformation(); repaintScene(panel); });
+        bindKey(panel, "T", () -> { currentShape.rotate(delta, 'x');  repaintScene(panel); });
+        bindKey(panel, "G", () -> { currentShape.rotate(-delta, 'x'); repaintScene(panel); });
+        bindKey(panel, "Y", () -> { currentShape.rotate(delta, 'y');  repaintScene(panel); });
+        bindKey(panel, "H", () -> { currentShape.rotate(-delta, 'y'); repaintScene(panel); });
+        bindKey(panel, "U", () -> { currentShape.rotate(delta, 'z');  repaintScene(panel); });
+        bindKey(panel, "J", () -> { currentShape.rotate(-delta, 'z'); repaintScene(panel); });
+        bindKey(panel, "UP", () -> { currentShape.translate(0,0.5,0);  repaintScene(panel); });
+        bindKey(panel, "DOWN", () -> { currentShape.translate(0,-0.5,0); repaintScene(panel); });
+        bindKey(panel, "LEFT", () -> { currentShape.translate(-0.5,0,0);  repaintScene(panel); });
+        bindKey(panel, "RIGHT", () -> { currentShape.translate(0.5,0,0); repaintScene(panel); });
+        bindKey(panel, "Z", () -> { currentShape.translate(0,0,0.5);  repaintScene(panel); });
+        bindKey(panel, "X", () -> { currentShape.translate(0,0,-0.5); repaintScene(panel); });
+        bindKey(panel, "C", () -> { currentShape.resetTransformation(); repaintScene(panel); });
         // Auto-rotation cube toggle
         bindKey(panel, "F", () -> {
-            if (autoRotateCube) {
-                autoRotateCubeTimer.stop();
+            if (autoRotateShape) {
+                autoRotateShapeTimer.stop();
             } else {
                 AtomicInteger t = new AtomicInteger(0);
-                autoRotateCubeTimer = new Timer(30, e -> {
+                autoRotateShapeTimer = new Timer(30, e -> {
                     t.incrementAndGet();
-                    cube.rotate(delta * Math.abs(Math.sin(t.get() / (40*Math.PI))), 'x');
-                    cube.rotate(delta * Math.abs(Math.sin(t.get() / (30*Math.PI))), 'y');
-                    cube.rotate(delta * Math.abs(Math.sin(t.get() / (50*Math.PI))), 'z');
+                    currentShape.rotate(delta * Math.abs(Math.sin(t.get() / (40*Math.PI))), 'x');
+                    currentShape.rotate(delta * Math.abs(Math.sin(t.get() / (30*Math.PI))), 'y');
+                    currentShape.rotate(delta * Math.abs(Math.sin(t.get() / (50*Math.PI))), 'z');
                     repaintScene(panel);
                 });
-                autoRotateCubeTimer.start();
+                autoRotateShapeTimer.start();
             }
-            autoRotateCube = !autoRotateCube;
+            autoRotateShape = !autoRotateShape;
             repaintScene(panel);
         });
 
-        bindKey(panel, "N", () -> { cube.scale(0.95, 0.95, 0.95);  repaintScene(panel); });
-        bindKey(panel, "M", () -> { cube.scale(1.05,1.05,1.05); repaintScene(panel); });
+        bindKey(panel, "N", () -> { currentShape.scale(0.95, 0.95, 0.95);  repaintScene(panel); });
+        bindKey(panel, "M", () -> { currentShape.scale(1.05,1.05,1.05); repaintScene(panel); });
 
         // Debug
-        bindKey(panel, "L", () -> System.out.println(cube));
+        bindKey(panel, "L", () -> System.out.println(currentShape + ", d=" + janim.getDistance()));
+
+        bindKey(panel, "1", () -> {
+            janim.setDistance(janim.getDistance() + 0.5);
+            repaintScene(panel);
+        });
+
+        bindKey(panel, "2", () -> {
+            janim.setDistance(janim.getDistance() - 0.5);
+            repaintScene(panel);
+        });
+
+        // Set cube as current shape
+        bindKey(panel, "3", () -> {
+            currentShape = cube;
+            repaintScene(panel);
+        });
+
+        // Set curve as current shape
+        bindKey(panel, "4", () -> {
+            currentShape = curve;
+            repaintScene(panel);
+        });
+
+        // Set surface as current shape
+        bindKey(panel, "5", () -> {
+            currentShape = surface;
+            repaintScene(panel);
+        });
+
+        // Set squeezed cylinder as current shape
+        bindKey(panel, "6", () -> {
+            currentShape = cylinder;
+            repaintScene(panel);
+        });
+
+        // Set gauss surface as current shape
+        bindKey(panel, "7", () -> {
+            currentShape = gauss;
+            repaintScene(panel);
+        });
+
+        // Toggle projection
+        bindKey(panel, "V", () -> {
+            if (janim.getProjection() == Projection.PARALLEL) {
+                janim.setProjection(Projection.PERSPECTIVE);
+                updateCameraPosition();
+                repaintScene(panel);
+            }
+            else if (janim.getProjection() == Projection.PERSPECTIVE) {
+                janim.setProjection(Projection.PARALLEL);
+                janim.setCamPosition(initialCamPosition);
+                updateCameraPosition();
+                repaintScene(panel);
+            }
+        });
     }
 
     private void initializeCameraAngles() {
-        double x = initialCamPosition.x();
-        double y = initialCamPosition.y();
-        double z = initialCamPosition.z();
+        double x = janim.getCamPosition().x();
+        double y = janim.getCamPosition().y();
+        double z = janim.getCamPosition().z();
         radius = Math.sqrt(x * x + y * y + z * z);
 
         angleX = Math.atan2(y, Math.sqrt(x * x + z * z));
         angleY = Math.atan2(x, z) - Math.PI/2;
         angleZ = Math.PI;
+        //angleZ = 0;
     }
 
     private void updateCameraPosition() {
@@ -229,7 +311,7 @@ public class App extends JFrame {
 
         // Cube
         janim.setColor(Color.WHITE);
-        janim.drawShape(cube);
+        janim.drawShape(currentShape);
     }
 
     private void repaintScene(JPanel panel) {

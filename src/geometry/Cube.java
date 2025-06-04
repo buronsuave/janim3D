@@ -6,18 +6,10 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Cube extends Shape {
-    private double size;
+    private final double size;
 
     public Cube(double size) {
         super();
-        this.size = size;
-    }
-
-    public double getSize() {
-        return size;
-    }
-
-    public void setSize(double size) {
         this.size = size;
     }
 
