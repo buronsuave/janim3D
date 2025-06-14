@@ -7,16 +7,11 @@ import geometry.SqueezedCylinder;
 import geometry.Surface3D;
 import geometry.Vector3D;
 import graphics.Janim3D;
+import hanoi.Peg;
 import math.Transform;
 import projection.Projection;
 
-import javax.swing.AbstractAction;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.KeyStroke;
-import javax.swing.Timer;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 
 import java.awt.Color;
 import java.awt.Graphics;
@@ -133,7 +128,9 @@ public class App extends JFrame {
         };
 
         for (String[] pair : actions) {
-            helpPanel.add(new javax.swing.JLabel(pair[0] + " - " + pair[1]));
+            JLabel label = new JLabel(pair[0] + " - " + pair[1]);
+            label.setForeground(Color.LIGHT_GRAY);
+            helpPanel.add(label);
         }
 
         panel.setLayout(null); // needed for absolute positioning

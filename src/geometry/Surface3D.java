@@ -2,11 +2,15 @@ package geometry;
 
 import math.Transform;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class Surface3D extends Shape {
+public class Surface3D extends Shape implements SolidShape {
+    private double mainR = 10;
+    private double tubeR = 3;
+    private Color color = new Color(9,147,209,255);
 
     @Override
     public List<Line3D> getGridLines() {
@@ -23,9 +27,9 @@ public class Surface3D extends Shape {
         // Compute first ring
         for (int j = 0; j < resolution; ++j) {
             Point3D p = new Point3D(
-                    (10 + 3*Math.sin(t2)),
+                    (mainR + tubeR*Math.sin(t2)),
                     0, // t1 = 0
-                    3*Math.cos(t2)
+                    tubeR*Math.cos(t2)
             );
             Transform.apply(getTransformation(), p);
             ring.add(p);
@@ -49,9 +53,9 @@ public class Surface3D extends Shape {
 
             for (int j = 0; j < resolution; ++j) {
                 Point3D p = new Point3D(
-                        (10 + 3*Math.sin(t2)) * Math.cos(t1),
-                        (10 + 3*Math.sin(t2)) * Math.sin(t1),
-                        3*Math.cos(t2)
+                        (mainR + tubeR*Math.sin(t2)) * Math.cos(t1),
+                        (mainR + tubeR*Math.sin(t2)) * Math.sin(t1),
+                        tubeR*Math.cos(t2)
                 );
                 Transform.apply(getTransformation(), p);
                 nextRing.add(p);
@@ -90,6 +94,56 @@ public class Surface3D extends Shape {
         }
 
         return lines;
+    }
+
+    public void setColor(Color color) {
+        this.color = color;
+    }
+
+    public void setMainR(double mainR) {
+        this.mainR = mainR;
+    }
+
+    public void setTubeR(double tubeR) {
+        this.tubeR = tubeR;
+    }
+
+    @Override
+    public List<Face3D> getFaces() {
+        int resolution = 40;
+        double step = 2 * Math.PI / resolution;
+
+        List<Face3D> faces = new ArrayList<>();
+        Point3D[][] grid = new Point3D[resolution][resolution];
+
+        // Generate the grid points
+        for (int i = 0; i < resolution; ++i) {
+            double t1 = i * step;
+            for (int j = 0; j < resolution; ++j) {
+                double t2 = j * step;
+
+                Point3D p = new Point3D(
+                        (mainR + tubeR * Math.sin(t2)) * Math.cos(t1),
+                        (mainR + tubeR * Math.sin(t2)) * Math.sin(t1),
+                        tubeR * Math.cos(t2)
+                );
+                Transform.apply(getTransformation(), p);
+                grid[i][j] = p;
+            }
+        }
+
+        // Create faces from quads
+        for (int i = 0; i < resolution; ++i) {
+            for (int j = 0; j < resolution; ++j) {
+                Point3D a = grid[i][j];
+                Point3D b = grid[i][(j + 1) % resolution];
+                Point3D c = grid[(i + 1) % resolution][(j + 1) % resolution];
+                Point3D d = grid[(i + 1) % resolution][j];
+                faces.add(new Face3D(new Point3D[]{a, b, c, d}, color));
+            }
+        }
+
+        return faces;
     }
 
     @Override

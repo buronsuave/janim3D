@@ -149,14 +149,8 @@ public class Rubik3x3x3 {
     }
 
     public void draw(Janim3D janim) {
-        //int index = -1;
         for (SolidShape cubelet : cubelets) {
-            //index++;
-            //if (index != 7 && index != 8) {
-            //    continue;
-            //}
-            janim.drawSolidShape(cubelet);
-
+            janim.drawSolidShape(cubelet, true);
         }
     }
 }

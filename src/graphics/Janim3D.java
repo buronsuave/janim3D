@@ -28,6 +28,7 @@ public class Janim3D {
     private Projection projection;
     private double distance;
     private Point3D lightSource;
+    private double ambientLight = 0.3;
 
     private static final int INSIDE = 0; // 0000
     private static final int LEFT = 1; // 0001
@@ -123,6 +124,10 @@ public class Janim3D {
         this.distance = distance;
     }
 
+    public void setAmbientLight(double ambientLight) {
+        this.ambientLight = ambientLight;
+    }
+
     private void drawPixel(int xScreen, int yScreen) {
         if (xScreen >= 0 && xScreen < width && yScreen >= 0 && yScreen < height) {
             buffer.setRGB(xScreen, yScreen, color.getRGB());
@@ -138,6 +143,10 @@ public class Janim3D {
                 zBuffer[x][y] = Float.POSITIVE_INFINITY;
             }
         }
+    }
+
+    public void setLightSource(Point3D lightSource) {
+        this.lightSource = lightSource;
     }
 
     public void clear() {
@@ -252,14 +261,12 @@ public class Janim3D {
         r.minus(l);
         r.normalize();
 
-        double ambient, specularStrength, shininess;
+        double specularStrength, shininess;
 
         if (material) {
-            ambient = 0.3;
             specularStrength = 0.1;
             shininess = 16;
         } else {
-            ambient = 0.3;
             specularStrength = 0.6;
             shininess = 64;
         }
@@ -267,7 +274,7 @@ public class Janim3D {
         double diffuse = Math.max(0, n.dot(l.opp()));
         double specular = Math.pow(Math.max(0, r.dot(v)), shininess) * specularStrength;
 
-        double intensity = ambient + diffuse;
+        double intensity = ambientLight + diffuse;
         intensity = Math.min(1.0, Math.max(0.0, intensity));
 
         return new Shading(intensity, Math.min(1.0, specular));
@@ -346,18 +353,22 @@ public class Janim3D {
         return (c.x() - a.x()) * (b.y() - a.y()) - (c.y() - a.y()) * (b.x() - a.x());
     }
 
-    public void drawSolidShape(SolidShape shape) {
+    public void drawSolidShape(SolidShape shape, boolean stickers) {
         List<Face3D> faces = shape.getFaces();
         for (Face3D face : faces) {
-            // Background
-            drawFilled3DQuad(face, new Color(10, 10, 10), false);
+            if (stickers) {
+                // Background
+                drawFilled3DQuad(face, new Color(10, 10, 10), false);
 
-            // Sticker...;
-            drawFilled3DQuad(
-                    new Face3D(shrinkQuad(face.getVertices()), face.getColor()),
-                    face.getColor(),
-                    true
-            );
+                // Sticker...;
+                drawFilled3DQuad(
+                        new Face3D(shrinkQuad(face.getVertices()), face.getColor()),
+                        face.getColor(),
+                        true
+                );
+            } else {
+                drawFilled3DQuad(face, face.getColor(), false);
+            }
         }
     }
 
