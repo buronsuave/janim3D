@@ -6,19 +6,25 @@ import java.util.List;
 
 public abstract class Shape {
     private double[][] transformation;
+    private double[][] initialTransform = new double[][] {
+            {1, 0, 0, 0},
+            {0, 1, 0, 0},
+            {0, 0, 1, 0},
+            {0, 0, 0, 1}
+    };
 
     public Shape() {
         resetTransformation();
     }
 
-    public void resetTransformation() {
-        transformation = new double[][] {
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-        };
+    public void setInitialTransform(double[][] transform) {
+        initialTransform = transform;
     }
+
+    public void resetTransformation() {
+        transformation = initialTransform.clone();
+    }
+
     public double[][] getTransformation() {
         return transformation;
     }
